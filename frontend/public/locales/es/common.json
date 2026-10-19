@@ -1,4 +1,10 @@
 {
+  "notFound": {
+    "title": "Página no encontrada",
+    "description": "Este trabajo o página no existe",
+    "goHome": "Ir al inicio",
+    "browseJobs": "Explorar trabajos"
+  },
   "nav": {
     "home": "Inicio",
     "browseJobs": "Explorar Trabajos",

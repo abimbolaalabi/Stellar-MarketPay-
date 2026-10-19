@@ -1,4 +1,10 @@
 {
+  "notFound": {
+    "title": "Page Not Found",
+    "description": "This job or page does not exist",
+    "goHome": "Go Home",
+    "browseJobs": "Browse Jobs"
+  },
   "nav": {
     "home": "Home",
     "browseJobs": "Browse Jobs",

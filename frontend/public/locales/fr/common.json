@@ -1,4 +1,10 @@
 {
+  "notFound": {
+    "title": "Page introuvable",
+    "description": "Cette offre ou page n'existe pas",
+    "goHome": "Retour à l'accueil",
+    "browseJobs": "Parcourir les offres"
+  },
   "nav": {
     "home": "Accueil",
     "browseJobs": "Parcourir les offres",
