@@ -477,14 +477,24 @@ pub(crate) fn freeze_escrow(env: Env, job_id: String, admin: Address) {
     }
 
     // Remember the pre-freeze status so unfreeze_escrow can restore it.
+    let previous_status = escrow.status.clone();
     env.storage()
         .instance()
-        .set(&DataKey::PreFreezeStatus(job_id.clone()), &escrow.status);
+        .set(&DataKey::PreFreezeStatus(job_id.clone()), &previous_status);
 
     escrow.status = EscrowStatus::Frozen;
     env.storage()
         .instance()
         .set(&DataKey::Escrow(job_id.clone()), &escrow);
+
+    crate::escrow_history::record_transition(
+        &env,
+        &job_id,
+        EscrowTransitionKind::Frozen,
+        previous_status,
+        EscrowStatus::Frozen,
+        &admin,
+    );
 
     env.events()
         .publish((symbol_short!("esc_frz"), job_id.clone()), admin);
@@ -523,13 +533,22 @@ pub(crate) fn unfreeze_escrow(env: Env, job_id: String, admin: Address) {
         .get(&DataKey::PreFreezeStatus(job_id.clone()))
         .expect("Escrow is not frozen");
 
-    escrow.status = pre_freeze_status;
+    escrow.status = pre_freeze_status.clone();
     env.storage()
         .instance()
         .set(&DataKey::Escrow(job_id.clone()), &escrow);
     env.storage()
         .instance()
         .remove(&DataKey::PreFreezeStatus(job_id.clone()));
+
+    crate::escrow_history::record_transition(
+        &env,
+        &job_id,
+        EscrowTransitionKind::Unfrozen,
+        EscrowStatus::Frozen,
+        pre_freeze_status,
+        &admin,
+    );
 
     env.events()
         .publish((symbol_short!("esc_unfr"), job_id.clone()), admin);

@@ -44,6 +44,52 @@ pub enum EscrowStatus {
     Frozen,
 }
 
+/// Kind of state transition captured in a job's on-chain escrow history.
+#[contracttype]
+#[derive(Clone, Debug, PartialEq)]
+pub enum EscrowTransitionKind {
+    /// Escrow created and funds locked (create + fund happen in one call).
+    Created,
+    /// Freelancer moved the escrow from Locked to InProgress.
+    WorkStarted,
+    /// Remaining funds were released to the freelancer.
+    Released,
+    /// Funds were returned to the client.
+    Refunded,
+    /// A participant raised a dispute.
+    Disputed,
+    /// A dispute was resolved and the escrow settled.
+    DisputeResolved,
+    /// An admin froze the escrow.
+    Frozen,
+    /// An admin unfroze the escrow.
+    Unfrozen,
+}
+
+/// A single, trustless escrow state transition.
+///
+/// The history is append-only and capped at
+/// [`crate::escrow_history::MAX_ESCROW_HISTORY`] entries per job, so storage
+/// growth stays bounded regardless of how many operations an escrow sees.
+/// Older transitions are evicted first.
+#[contracttype]
+#[derive(Clone, Debug, PartialEq)]
+pub struct EscrowTransition {
+    /// What triggered the transition.
+    pub kind: EscrowTransitionKind,
+    /// Status before the transition. For `Created` this equals `to` (there is
+    /// no prior escrow state to point at).
+    pub from: EscrowStatus,
+    /// Status after the transition.
+    pub to: EscrowStatus,
+    /// Address that triggered the transition.
+    pub actor: Address,
+    /// Ledger sequence in which the transition occurred.
+    pub ledger: u32,
+    /// Ledger timestamp (Unix seconds) of the transition.
+    pub timestamp: u64,
+}
+
 #[contracttype]
 #[derive(Clone, Debug, PartialEq)]
 pub struct Milestone {
@@ -330,6 +376,8 @@ pub enum DataKey {
     ExecutionDelaySeconds,
     /// Status an escrow had before it was frozen, restored on unfreeze
     PreFreezeStatus(String),
+    /// Bounded, append-only log of escrow state transitions for a job
+    EscrowHistory(String),
 }
 
 pub(crate) const DEFAULT_QUORUM_THRESHOLD_BPS: u32 = 1_000;

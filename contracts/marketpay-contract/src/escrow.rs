@@ -190,6 +190,17 @@ pub(crate) fn create_escrow_internal(
         .instance()
         .set(&DataKey::EscrowCount, &new_count);
 
+    // Record the create/fund transition before emitting the event so event
+    // consumers can always read a consistent on-chain history.
+    crate::escrow_history::record_transition(
+        &env,
+        &job_id,
+        EscrowTransitionKind::Created,
+        EscrowStatus::Locked,
+        EscrowStatus::Locked,
+        &escrow.client,
+    );
+
     // Emit event
     env.events().publish(
         (symbol_short!("escrow_cr"), job_id.clone()),
@@ -225,6 +236,15 @@ pub(crate) fn start_work(env: Env, job_id: String, freelancer: Address) {
     env.storage()
         .instance()
         .set(&DataKey::Escrow(job_id.clone()), &escrow);
+
+    crate::escrow_history::record_transition(
+        &env,
+        &job_id,
+        EscrowTransitionKind::WorkStarted,
+        EscrowStatus::Locked,
+        EscrowStatus::InProgress,
+        &freelancer,
+    );
 
     env.events().publish(
         (symbol_short!("work_strt"), job_id.clone()),
@@ -262,7 +282,8 @@ pub(crate) fn release_escrow(env: Env, job_id: String, client: Address) {
         }
     }
 
-    release_escrow_core(env, job_id, escrow);
+    let actor = client.clone();
+    release_escrow_core(env, job_id, escrow, actor);
 }
 
 /// Applies the optional 2% referral bonus to a post-platform-fee payout.
@@ -307,13 +328,15 @@ pub(crate) fn apply_referral_bonus(
     }
 }
 
-pub(crate) fn release_escrow_core(env: Env, job_id: String, mut escrow: Escrow) {
+pub(crate) fn release_escrow_core(env: Env, job_id: String, mut escrow: Escrow, actor: Address) {
     if escrow.status == EscrowStatus::Released || escrow.status == EscrowStatus::Refunded {
         panic!("Escrow already settled");
     }
     if escrow.status != EscrowStatus::InProgress && escrow.status != EscrowStatus::Locked {
         panic!("Cannot release escrow in current status");
     }
+
+    let previous_status = escrow.status.clone();
 
     // Check if there are incomplete milestones
     let mut remaining_amount: i128 = 0;
@@ -359,6 +382,15 @@ pub(crate) fn release_escrow_core(env: Env, job_id: String, mut escrow: Escrow) 
     env.storage()
         .instance()
         .remove(&DataKey::FreelancerDeliverableHash(job_id.clone()));
+
+    crate::escrow_history::record_transition(
+        &env,
+        &job_id,
+        EscrowTransitionKind::Released,
+        previous_status,
+        EscrowStatus::Released,
+        &actor,
+    );
 
     if release_amount > 0 {
         let token_client = token::Client::new(&env, &escrow.token);
@@ -456,6 +488,8 @@ pub(crate) fn release_with_conversion(
         panic!("Cannot release escrow in current status");
     }
 
+    let previous_status = escrow.status.clone();
+
     // Calculate remaining amount
     let mut remaining_amount: i128 = 0;
     for ms in escrow.milestones.iter() {
@@ -543,6 +577,15 @@ pub(crate) fn release_with_conversion(
         .instance()
         .remove(&DataKey::TimeoutTimestamp(job_id.clone()));
 
+    crate::escrow_history::record_transition(
+        &env,
+        &job_id,
+        EscrowTransitionKind::Released,
+        previous_status,
+        EscrowStatus::Released,
+        &client,
+    );
+
     env.events().publish(
         (symbol_short!("escrow_rl"), job_id.clone()),
         (
@@ -588,6 +631,15 @@ pub(crate) fn refund_escrow(env: Env, job_id: String, client: Address) {
     env.storage()
         .instance()
         .set(&DataKey::Escrow(job_id.clone()), &escrow);
+
+    crate::escrow_history::record_transition(
+        &env,
+        &job_id,
+        EscrowTransitionKind::Refunded,
+        EscrowStatus::Locked,
+        EscrowStatus::Refunded,
+        &client,
+    );
 
     env.events().publish(
         (symbol_short!("escrow_rf"), job_id.clone()),
@@ -648,6 +700,15 @@ pub(crate) fn timeout_refund(env: Env, job_id: String, client: Address) {
     env.storage()
         .instance()
         .set(&DataKey::Escrow(job_id.clone()), &escrow);
+
+    crate::escrow_history::record_transition(
+        &env,
+        &job_id,
+        EscrowTransitionKind::Refunded,
+        EscrowStatus::Locked,
+        EscrowStatus::Refunded,
+        &client,
+    );
 
     env.events().publish(
         (symbol_short!("escrow_rf"), job_id.clone()),
@@ -871,6 +932,16 @@ pub(crate) fn resolve_timeout(env: Env, job_id: String) {
                 .instance()
                 .set(&DataKey::Escrow(job_id.clone()), &escrow);
 
+            let actor = env.current_contract_address();
+            crate::escrow_history::record_transition(
+                &env,
+                &job_id,
+                EscrowTransitionKind::Refunded,
+                EscrowStatus::Locked,
+                EscrowStatus::Refunded,
+                &actor,
+            );
+
             env.events().publish(
                 (symbol_short!("escrow_rf"), job_id.clone()),
                 (
@@ -881,7 +952,8 @@ pub(crate) fn resolve_timeout(env: Env, job_id: String) {
             );
         },
         EscrowStatus::InProgress => {
-            crate::escrow::release_escrow_core(env, job_id, escrow);
+            let actor = env.current_contract_address();
+            crate::escrow::release_escrow_core(env, job_id, escrow, actor);
         },
         _ => panic!("Cannot resolve timeout in current status"),
     }

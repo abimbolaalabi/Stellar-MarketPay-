@@ -552,6 +552,7 @@ All read-only, no auth required, no events emitted.
 | ----------------------- | ----------------------------------- | ----------------- | ------------------------------------------------------------------------------ |
 | `get_escrow`            | `(env, job_id: String)`             | `Escrow`          | Full escrow record                                                             |
 | `get_status`            | `(env, job_id: String)`             | `EscrowStatus`    | Current status enum                                                            |
+| `get_escrow_history`    | `(env, job_id: String)`             | `Vec<EscrowTransition>` | Last 20 state transitions with actor, ledger and timestamp               |
 | `get_timeout_ledger`    | `(env, job_id: String)`             | `u32`             | Legacy ledger-sequence timeout                                                 |
 | `get_timeout_timestamp` | `(env, job_id: String)`             | `u32`             | Unix-timestamp timeout (0 if unset)                                            |
 | `get_milestone`         | `(env, job_id: String, index: u32)` | `Milestone`       | Single milestone by index; panics `InvalidMilestoneIndex (3006)` out of bounds |

@@ -38,6 +38,8 @@ pub(crate) fn raise_dispute(env: Env, job_id: String, caller: Address) {
         panic!("Cannot dispute a resolved, frozen, or already-disputed escrow");
     }
 
+    let previous_status = escrow.status.clone();
+
     // Optional bond requirement (Issue #437).  When the admin has not
     // configured a dispute bond this block is a no-op and the function
     // falls through to the legacy behaviour preserved for backward
@@ -67,6 +69,15 @@ pub(crate) fn raise_dispute(env: Env, job_id: String, caller: Address) {
             .instance()
             .set(&DataKey::Escrow(job_id.clone()), &escrow);
 
+        crate::escrow_history::record_transition(
+            &env,
+            &job_id,
+            EscrowTransitionKind::Disputed,
+            previous_status,
+            EscrowStatus::Disputed,
+            &caller,
+        );
+
         // Lock the bond.  `caller.require_auth()` above has already
         // authorised ALL token operations from this caller, so this
         // single transfer call covers the bond lock.
@@ -94,6 +105,15 @@ pub(crate) fn raise_dispute(env: Env, job_id: String, caller: Address) {
     env.storage()
         .instance()
         .set(&DataKey::Escrow(job_id.clone()), &escrow);
+
+    crate::escrow_history::record_transition(
+        &env,
+        &job_id,
+        EscrowTransitionKind::Disputed,
+        previous_status,
+        EscrowStatus::Disputed,
+        &caller,
+    );
 
     env.events().publish(
         (symbol_short!("escrow_ds"), job_id.clone()),
@@ -206,6 +226,15 @@ pub(crate) fn resolve_dispute(
     env.storage()
         .instance()
         .remove(&DataKey::FreelancerDeliverableHash(job_id.clone()));
+
+    crate::escrow_history::record_transition(
+        &env,
+        &job_id,
+        EscrowTransitionKind::DisputeResolved,
+        EscrowStatus::Disputed,
+        EscrowStatus::Released,
+        &arbitrator,
+    );
 
     // Pay out arbitrator fee and escrow principal (winner / loser)
     let escrow_token_client = token::Client::new(&env, &escrow.token);

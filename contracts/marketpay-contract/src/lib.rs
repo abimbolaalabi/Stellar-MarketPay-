@@ -42,6 +42,7 @@ mod deliverable;
 mod disputes;
 mod errors;
 mod escrow;
+mod escrow_history;
 mod governance;
 mod helpers;
 mod messages;
@@ -172,6 +173,14 @@ impl MarketPayContract {
     /// Get escrow status for a job.
     pub fn get_status(env: Env, job_id: String) -> types::EscrowStatus {
         admin::get_status(env, job_id)
+    }
+
+    /// Get the on-chain state transitions for a job's escrow, oldest first.
+    ///
+    /// The log is append-only and bounded to the most recent
+    /// `MAX_ESCROW_HISTORY` transitions per job.
+    pub fn get_escrow_history(env: Env, job_id: String) -> Vec<types::EscrowTransition> {
+        escrow_history::get_escrow_history(env, job_id)
     }
 
     /// Get timeout ledger for a job.

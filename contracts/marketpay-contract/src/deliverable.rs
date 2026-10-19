@@ -91,17 +91,27 @@ pub(crate) fn submit_deliverable(
 
     if actual_hash == expected_hash {
         // Auto-release on successful deliverable verification.
-        release_escrow_core(env.clone(), job_id.clone(), escrow);
+        release_escrow_core(env.clone(), job_id.clone(), escrow, caller.clone());
         env.events()
             .publish((symbol_short!("dlv_ok"), job_id), (caller, actual_hash));
         return;
     }
 
     // Mismatch must explicitly enter dispute.
+    let previous_status = escrow.status.clone();
     escrow.status = EscrowStatus::Disputed;
     env.storage()
         .instance()
         .set(&DataKey::Escrow(job_id.clone()), &escrow);
+
+    crate::escrow_history::record_transition(
+        &env,
+        &job_id,
+        EscrowTransitionKind::Disputed,
+        previous_status,
+        EscrowStatus::Disputed,
+        &caller,
+    );
 
     env.events()
         .publish((symbol_short!("dlv_bad"), job_id), (caller, actual_hash));
