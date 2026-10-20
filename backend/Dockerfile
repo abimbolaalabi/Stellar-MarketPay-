@@ -1,3 +1,19 @@
+FROM node:20-alpine AS dev
+
+# Development stage: keep dev dependencies (nodemon) and source for hot reload.
+RUN apk add --no-cache wget
+
+WORKDIR /app
+COPY package*.json ./
+RUN npm ci
+COPY . .
+
+ENV NODE_ENV=development
+
+EXPOSE 4000
+
+CMD ["npm", "run", "dev"]
+
 FROM node:20-alpine AS builder
 
 WORKDIR /app

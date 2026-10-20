@@ -189,13 +189,29 @@ Run the entire stack (frontend, backend, PostgreSQL, Redis) in containers:
 docker compose up
 ```
 
+Both services build the `dev` stage from their Dockerfiles, which installs dev
+dependencies (including `nodemon` and the `next` CLI), mounts the source tree,
+and runs `npm run dev` with file watching enabled. Hot reload works for both
+services; the production stages used by `docker-compose.prod.yml` are unchanged.
+
+The compose file provides container-appropriate defaults for local development.
+To override the development JWT secret, export it before starting:
+
+```bash
+JWT_SECRET=your-own-secret docker compose up
+```
+
+The frontend API URL defaults to `http://localhost:4000` because it is consumed
+by the browser. No `backend/.env` file is required for the compose workflow.
+
 To also spin up the ELK logging stack:
 
 ```bash
 docker compose --profile logging up
 ```
 
-> The `backend` container requires `DATABASE_URL` and `JWT_SECRET` to be set in `backend/.env`. Copy from `.env.example` before starting.
+> If you change dependencies, rebuild the images (and recreate the anonymous
+> `node_modules` volumes) with `docker compose up --build --renew-anon-volumes`.
 
 ---
 

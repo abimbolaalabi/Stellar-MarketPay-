@@ -1,3 +1,14 @@
+# Development stage: includes dev dependencies and the `next` CLI for hot reload.
+FROM node:20-alpine AS dev
+RUN apk add --no-cache libc6-compat
+WORKDIR /app
+COPY package*.json ./
+RUN npm ci --legacy-peer-deps
+COPY . .
+ENV NEXT_TELEMETRY_DISABLED 1
+EXPOSE 3000
+CMD ["npm", "run", "dev"]
+
 # Stage 1: Install dependencies and build the app
 FROM node:20-alpine AS builder
 RUN apk add --no-cache libc6-compat

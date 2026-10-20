@@ -5,12 +5,15 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
+      target: dev
     ports:
       - "3000:3000"
     environment:
       - NEXT_PUBLIC_STELLAR_NETWORK=testnet
       - NEXT_PUBLIC_HORIZON_URL=https://horizon-testnet.stellar.org
       - NEXT_PUBLIC_API_URL=http://localhost:4000
+      # Docker Desktop bind mounts do not always emit native file events.
+      - WATCHPACK_POLLING=true
     volumes:
       - ./frontend:/app
       - /app/node_modules
@@ -34,6 +37,7 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
+      target: dev
     ports:
       - "4000:4000"
     environment:
@@ -43,6 +47,10 @@ services:
       - HORIZON_URL=https://horizon-testnet.stellar.org
       - ALLOWED_ORIGINS=http://localhost:3000
       - REDIS_URL=redis://redis:6379
+      # Container-internal hostnames (the host values in backend/.env use localhost).
+      - DATABASE_URL=postgresql://stellarwork:stellarwork_dev@postgres:5432/stellarwork
+      - JWT_SECRET=${JWT_SECRET:-local-dev-only-jwt-secret-change-me}
+      - CONTRACT_ID=${CONTRACT_ID:-CBFJNX67NYYRZPLH4YYT77ZUULRJ5NI2LPEYRRLFHBTEACZOZUUYLOGG}
     volumes:
       - ./backend:/app
       - /app/node_modules
@@ -52,12 +60,13 @@ services:
       postgres:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://localhost:4000/api/health"]
+      test: ["CMD", "wget", "-qO-", "http://localhost:4000/health"]
       interval: 30s
       timeout: 10s
       retries: 3
       start_period: 10s
-    command: npm run dev
+    # Polling keeps hot reload reliable on Windows/macOS bind mounts.
+    command: ["npm", "run", "dev", "--", "--legacy-watch"]
 
     
   postgres:
