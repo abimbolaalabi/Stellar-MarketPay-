@@ -47,7 +47,7 @@ const autoConvertRoutes    = require("./routes/autoConvert");
 const talentPoolRoutes     = require("./routes/talentPool");
 const invitationRoutes     = require("./routes/invitations");
  
-const migrate           = require("./db/migrate");
+const { migrate }       = require("./db/migrate");
 const IndexerService    = require("./services/indexerService");
 const { PriceAlertService } = require("./services/priceAlertService");
 const pool              = require("./db/pool");
